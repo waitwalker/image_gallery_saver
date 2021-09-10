@@ -4,15 +4,16 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Environment
+import androidx.annotation.NonNull
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
-import io.flutter.plugin.common.PluginRegistry.Registrar
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -23,24 +24,24 @@ class ImageGallerySaverPlugin : FlutterPlugin, MethodCallHandler {
     private var methodChannel: MethodChannel? = null
 
 
-    companion object {
-        @JvmStatic
-        fun registerWith(registrar: Registrar) {
-            val instance = ImageGallerySaverPlugin()
-            instance.onAttachedToEngine(registrar.context(), registrar.messenger())
-        }
-    }
+//    companion object {
+//        @JvmStatic
+//        fun registerWith(registrar: Registrar) {
+//            val instance = ImageGallerySaverPlugin()
+//            instance.onAttachedToEngine(registrar.context(), registrar.messenger())
+//        }
+//    }
 
-    override fun onMethodCall(call: MethodCall, result: Result): Unit {
-        when {
-            call.method == "saveImageToGallery" -> {
+    override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result): Unit {
+        when (call.method) {
+            "saveImageToGallery" -> {
                 val image = call.argument<ByteArray>("imageBytes") ?: return
                 val quality = call.argument<Int>("quality") ?: return
                 val name = call.argument<String>("name")
 
                 result.success(saveImageToGallery(BitmapFactory.decodeByteArray(image, 0, image.size), quality, name))
             }
-            call.method == "saveFileToGallery" -> {
+            "saveFileToGallery" -> {
                 val path = call.argument<String>("file") ?: return
                 val name = call.argument<String>("name")
                 result.success(saveFileToGallery(path, name))
@@ -52,7 +53,12 @@ class ImageGallerySaverPlugin : FlutterPlugin, MethodCallHandler {
 
 
     private fun generateFile(extension: String = "", name: String? = null): File {
-        val storePath = Environment.getExternalStorageDirectory().absolutePath + File.separator + Environment.DIRECTORY_PICTURES
+        print("path:"+ this.applicationContext?.externalCacheDir!!.absolutePath);
+        var path = this.applicationContext?.externalCacheDir!!.absolutePath;
+        if (path.isEmpty()) {
+            path = Environment.getExternalStorageDirectory().absolutePath;
+        }
+        val storePath = path + File.separator + Environment.DIRECTORY_PICTURES
         val appDir = File(storePath)
         if (!appDir.exists()) {
             appDir.mkdir()
@@ -90,7 +96,9 @@ class ImageGallerySaverPlugin : FlutterPlugin, MethodCallHandler {
             originalFile.copyTo(file)
 
             val uri = Uri.fromFile(file)
-            context!!.sendBroadcast(Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, uri))
+            //context!!.sendBroadcast(Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, uri))
+            MediaScannerConnection.scanFile(context, arrayOf(file.toString()),
+                    null, null)
             SaveResultModel(uri.toString().isNotEmpty(), uri.toString(), null).toHashMap()
         } catch (e: IOException) {
             SaveResultModel(false, null, e.toString()).toHashMap()
